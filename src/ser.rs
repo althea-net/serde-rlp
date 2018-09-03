@@ -224,6 +224,10 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        // Same as for sequences - we need to save current state of output,
+        // to be able to capture serialized values.
+        self.buffer.push_front(self.output.clone());
+        self.output.clear();
         Ok(self)
     }
 
@@ -282,6 +286,11 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
+        let mut prefix = rlp::encode_length(self.output.len() as u64, 0xc0);
+        prefix.extend(self.output.clone());
+        // Restore original state after capturing this sequence
+        self.output = self.buffer.pop_front().unwrap();
+        self.output.extend(prefix);
         Ok(())
     }
 }
@@ -350,11 +359,16 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        key.serialize(&mut **self)?;
-        value.serialize(&mut **self)
+        // Serialize element of a structure as a sequence [key, value].
+        let dummy_seq = (&key, &value);
+        dummy_seq.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
+        let mut prefix = rlp::encode_length(self.output.len() as u64, 0xc0);
+        prefix.extend(self.output.clone());
+        self.output = self.buffer.pop_front().unwrap(); // This unwrap is safe assuming the normal path of the code.
+        self.output.extend(prefix);
         Ok(())
     }
 }
@@ -393,6 +407,15 @@ fn test_shortstring() {
 fn test_shortlist() {
     assert_eq!(
         to_bytes(&vec!["cat", "dog"]).unwrap(),
+        [0xc8, 0x83, 0x63, 0x61, 0x74, 0x83, 0x64, 0x6f, 0x67]
+    );
+}
+
+#[test]
+fn test_shortlist_as_tuple() {
+    let data = ("cat", "dog");
+    assert_eq!(
+        to_bytes(&data).unwrap(),
         [0xc8, 0x83, 0x63, 0x61, 0x74, 0x83, 0x64, 0x6f, 0x67]
     );
 }

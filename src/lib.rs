@@ -12,4 +12,4 @@ extern crate serde;
 
 mod error;
 mod rlp;
-mod ser;
+pub mod ser;
