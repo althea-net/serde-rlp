@@ -2,7 +2,7 @@
 
 Ethereum's RLP encoding implemented as a Serde data format
 
-This code is part of `clarity` - an effort to implement lightweight Etehereum transaction signing. WIP.
+This code is part of `clarity` - an effort to implement lightweight Ethereum transaction signing. WIP.
 
 # Examples
 
