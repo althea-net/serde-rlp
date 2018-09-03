@@ -40,7 +40,6 @@ impl std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Message(ref msg) => msg,
-            _ => unimplemented!(),
         }
     }
 }

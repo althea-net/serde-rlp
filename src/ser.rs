@@ -98,7 +98,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_bytes(&rlp::encode_number(v))
     }
 
-    fn serialize_f32(self, v: f32) -> Result<()> {
+    fn serialize_f32(self, _v: f32) -> Result<()> {
         unimplemented!();
     }
 
