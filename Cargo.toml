@@ -7,6 +7,9 @@ include = [
     "Cargo.toml"
 ]
 
+[badges]
+travis-ci = { repository = "althea-mesh/serde-rlp", branch = "master" }
+
 [dependencies]
 byteorder = "1.2"
 num = "0.2"
