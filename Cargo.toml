@@ -2,6 +2,10 @@
 name = "serde-rlp"
 version = "0.1.0"
 authors = ["Michał Papierski <michal@papierski.net>"]
+include = [
+    "**/*.rs",
+    "Cargo.toml"
+]
 
 [dependencies]
 byteorder = "1.2"
