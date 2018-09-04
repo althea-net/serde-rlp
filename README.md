@@ -1,6 +1,6 @@
 # serde-rlp
 
-[![Build Status](https://travis-ci.org/althea-mesh/serde-rlp.svg?branch=master)](https://travis-ci.org/althea-mesh/serde-rlp)
+[![Crates.io](https://img.shields.io/crates/v/serde-rlp.svg)](https://crates.io/crates/serde-rlp) [![Build Status](https://travis-ci.org/althea-mesh/serde-rlp.svg?branch=master)](https://travis-ci.org/althea-mesh/serde-rlp)
 
 Ethereum's RLP encoding implemented as a Serde data format
 
