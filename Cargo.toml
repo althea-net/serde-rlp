@@ -1,6 +1,6 @@
 [package]
 name = "serde-rlp"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Michał Papierski <michal@papierski.net>"]
 include = [
     "**/*.rs",
