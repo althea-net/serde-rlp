@@ -6,6 +6,16 @@ Ethereum's RLP encoding implemented as a Serde data format
 
 This code is part of `clarity` - an effort to implement lightweight Ethereum transaction signing. WIP.
 
+# Releasing
+
+To release new version of `serde-rlp` do the following steps:
+
+```sh
+# Do a signed tag for new version with annotation "YYYY-MM-DD, Version v$VERSION"
+git tag v1.0.0 -a -s "2018-09-04, Version v1.0.0"
+git push origin --follow-tags
+```
+
 # Examples
 
 You should be able to use this crate same way as you'd use other serialization formats in serde. The key to serialization is `serde_rlp::ser::to_bytes` which does the magic.
