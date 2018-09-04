@@ -1,19 +1,35 @@
 language: rust
 cache: cargo
-sudo: false
+sudo: required
+services: docker
+
 rust:
   - stable
   - beta
   - nightly
+
+env:
+  - TARGET="x86_64-unknown-linux-gnu"
+  - TARGET="mips-unknown-linux-gnu"
+  - TARGET="mipsel-unknown-linux-gnu"
+  - TARGET="mips64-unknown-linux-gnuabi64"
+  - TARGET="mips64el-unknown-linux-gnuabi64"
+
+before_install:
+  - command -v cross 1>/dev/null || cargo install cross
+
 script:
-  - cargo build --verbose --all
-  - cargo test --verbose --all
+  - cross build --target $TARGET --verbose --all
+  - cross test --target $TARGET --verbose --all
+
 matrix:
   allow_failures:
   - rust: nightly
   fast_finish: true
   include:
   - rust: stable
+    env:
+    before_install:
     script:
     - rustup component add rustfmt-preview
     - cargo fmt --all -- --check
