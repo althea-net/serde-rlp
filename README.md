@@ -1,5 +1,7 @@
 # serde-rlp
 
+[![Build Status](https://travis-ci.org/althea-mesh/serde-rlp.svg?branch=master)](https://travis-ci.org/althea-mesh/serde-rlp)
+
 Ethereum's RLP encoding implemented as a Serde data format
 
 This code is part of `clarity` - an effort to implement lightweight Ethereum transaction signing. WIP.
