@@ -1,10 +1,7 @@
 use std::collections::VecDeque;
 use std::ops::{AddAssign, MulAssign, Neg};
 
-use serde::de::{
-    self, Deserialize, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess,
-    VariantAccess, Visitor,
-};
+use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 
 use rlp::{self, ExpectedType};
 
@@ -13,7 +10,6 @@ use std::str;
 
 pub struct Deserializer<'de> {
     input: &'de [u8],
-    last_offset: usize,
     /// Stacked input slices for nested data
     stack: VecDeque<&'de [u8]>,
 }
@@ -22,7 +18,6 @@ impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Self {
         Deserializer {
             input: input,
-            last_offset: 0usize,
             stack: VecDeque::new(),
         }
     }
@@ -34,7 +29,7 @@ where
 {
     let mut deserializer = Deserializer::from_bytes(s);
     let t = T::deserialize(&mut deserializer)?;
-    if deserializer.last_offset == deserializer.input.len() || deserializer.input.len() == 0 {
+    if deserializer.input.len() == 0 {
         Ok(t)
     } else {
         Err(Error::TrailingBytes)
@@ -47,11 +42,6 @@ impl<'de> Deserializer<'de> {
         unimplemented!();
     }
 
-    // Parse a group of decimal digits as an unsigned integer of type T.
-    //
-    // This implementation is a bit too lenient, for example `001` is not
-    // allowed in JSON. Also the various arithmetic operations can overflow and
-    // panic or return bogus data. But it is good enough for example code!
     fn parse_unsigned<T>(&mut self) -> Result<T>
     where
         T: AddAssign<T> + MulAssign<T> + From<u8>,
@@ -59,8 +49,6 @@ impl<'de> Deserializer<'de> {
         unimplemented!();
     }
 
-    // Parse a possible minus sign followed by a group of decimal digits as a
-    // signed integer of type T.
     fn parse_signed<T>(&mut self) -> Result<T>
     where
         T: Neg<Output = T> + AddAssign<T> + MulAssign<T> + From<i8>,
@@ -69,22 +57,15 @@ impl<'de> Deserializer<'de> {
         unimplemented!()
     }
 
-    // Parse a string until the next '"' character.
-    //
-    // Makes no attempt to handle escape sequences. What did you expect? This is
-    // example code!
     fn parse_string(&mut self) -> Result<&'de str> {
-        match rlp::decode_length(&self.input) {
-            Ok(ref res) if res.expected_type == ExpectedType::StringType => {
-                match str::from_utf8(&self.input[res.offset..res.offset + res.length]) {
-                    Ok(s) => {
-                        self.last_offset = res.offset + res.length;
-                        Ok(s)
-                    }
-                    Err(_) => unimplemented!("TODO: Error unable to decode string"),
-                }
-            }
-            v => unimplemented!("TODO: Error handling {:?}", v),
+        let res = rlp::decode_length(&self.input)?;
+        if res.expected_type == ExpectedType::StringType {
+            let s = str::from_utf8(&self.input[res.offset..res.offset + res.length])
+                .map_err(|_| Error::InvalidString)?;
+            self.input = &self.input[res.offset + res.length..];
+            Ok(s)
+        } else {
+            Err(Error::ExpectedString)
         }
     }
 }
@@ -92,7 +73,7 @@ impl<'de> Deserializer<'de> {
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     type Error = Error;
 
-    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -219,14 +200,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unimplemented!()
     }
 
-    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_option<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         unimplemented!();
     }
 
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -254,12 +235,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         let res = rlp::decode_length(&self.input)?;
         if res.expected_type == ExpectedType::ListType {
             let nested = &self.input[res.offset..res.offset + res.length];
-
-            // XXX: Is it really necessary to stack it?
             self.stack.push_front(&self.input);
             self.input = nested;
-
             let value = visitor.visit_seq(RlpListDecoder::new(&mut self))?;
+            self.input = self.stack.pop_front().unwrap();
+            self.input = &self.input[res.offset + res.length..];
             Ok(value)
         } else {
             Err(Error::ExpectedList)
@@ -285,7 +265,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -308,7 +288,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        visitor: V,
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
@@ -357,19 +337,14 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
             // No more elements
             return Ok(None);
         }
-        let res = rlp::decode_length(&self.de.input).expect("Unable to decode next");
-        match res.expected_type {
+        match rlp::decode_length(&self.de.input)?.expected_type {
             ExpectedType::StringType => {
                 let result = seed.deserialize(&mut *self.de);
-                // Consume the boundaries therefore decreasing this list
-                self.de.input = &self.de.input[res.offset + res.length..];
                 result.map(Some)
             }
             ExpectedType::ListType => {
                 // Here we don't consume boundaries of a list, and let the deserializer create new deserializer for this sequence.
                 let result = seed.deserialize(&mut *self.de);
-                self.de.input = self.de.stack.pop_front().unwrap();
-                self.de.input = &self.de.input[res.offset + res.length..self.de.input.len()];
                 result.map(Some)
             }
         }

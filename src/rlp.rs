@@ -175,7 +175,9 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
             length: list_len,
             expected_type: ExpectedType::ListType,
         })
-    } else if prefix <= 0xff && input.len() as u64 > prefix as u64 - 0xf7
+    } else if
+    /* prefix <= 0xff && */
+    input.len() as u64 > prefix as u64 - 0xf7
         && input.len() as u64
             > prefix as u64 - 0xf7u64
                 + to_integer(&input[1..prefix as usize - 0xf7]).ok_or(Error::ListPrefixTooSmall)?
@@ -208,7 +210,6 @@ fn decode_single_byte() {
 
 #[test]
 fn decode_short_string() {
-    use std::str;
     // "abc"
     let input = vec![0x83, 0x61, 0x62, 0x63, 0xff];
     let res = decode_length(&input[..]).unwrap();
