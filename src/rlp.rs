@@ -159,10 +159,11 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     } else if prefix <= 0xbf && input.len() > prefix as usize - 0xb7
         && input.len() as u64
             > prefix as u64 - 0xb7u64
-                + to_integer(&input[1..prefix as usize - 0xb7]).ok_or(Error::StringPrefixTooSmall)?
+                + to_integer(&input[1..prefix as usize - 0xb7 + 1])
+                    .ok_or(Error::StringPrefixTooSmall)?
     {
         let len_of_str_len = prefix as usize - 0xb7;
-        let str_len = to_integer(&input[1..len_of_str_len]).unwrap();
+        let str_len = to_integer(&input[1..len_of_str_len + 1]).unwrap();
         Ok(DecodeLengthResult {
             offset: 1 + len_of_str_len,
             length: str_len as usize,
