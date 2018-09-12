@@ -16,6 +16,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Error {
     Message(String),
+    TrailingBytes,
 }
 
 impl ser::Error for Error {
@@ -40,6 +41,7 @@ impl std::error::Error for Error {
     fn description(&self) -> &str {
         match *self {
             Error::Message(ref msg) => msg,
+            Error::TrailingBytes => "Trailing bytes found at the end of input",
         }
     }
 }
