@@ -373,6 +373,14 @@ fn deserialize_short_array() {
 }
 
 #[test]
+fn deserialize_short_array_into_tuple() {
+    let (abc, def): (String, String) =
+        from_bytes(&[0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
+    assert_eq!(abc, "abc");
+    assert_eq!(def, "def");
+}
+
+#[test]
 fn deserialize_nested_sequence_of_string_seq() {
     let foo: Vec<Vec<String>> =
         from_bytes(&[0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
