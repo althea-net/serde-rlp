@@ -7,6 +7,7 @@
 // except according to those terms.
 
 use byteorder::{BigEndian, WriteBytesExt};
+use error::Error;
 use num::Num;
 use num::Unsigned;
 use std::mem::size_of;
@@ -137,61 +138,63 @@ pub struct DecodeLengthResult {
 }
 
 /// Decodes chunk of data and outputs offset, length of nested data and its expected type
-pub fn decode_length(input: &[u8]) -> Option<DecodeLengthResult> {
+pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     if input.len() == 0 {
-        return None;
+        return Err(Error::EmptyBuffer);
     }
     let prefix = input[0];
     if prefix <= 0x7f {
-        Some(DecodeLengthResult {
+        Ok(DecodeLengthResult {
             offset: 0,
             length: 1usize,
             expected_type: ExpectedType::StringType,
         })
     } else if prefix <= 0xb7 && input.len() > (prefix - 0x80) as usize {
         let str_len = prefix - 0x80;
-        Some(DecodeLengthResult {
+        Ok(DecodeLengthResult {
             offset: 1,
             length: str_len as usize,
             expected_type: ExpectedType::StringType,
         })
     } else if prefix <= 0xbf && input.len() > prefix as usize - 0xb7
         && input.len() as u64
-            > prefix as u64 - 0xb7u64 + to_integer(&input[1..prefix as usize - 0xb7]).unwrap()
+            > prefix as u64 - 0xb7u64
+                + to_integer(&input[1..prefix as usize - 0xb7]).ok_or(Error::StringPrefixTooSmall)?
     {
         let len_of_str_len = prefix as usize - 0xb7;
         let str_len = to_integer(&input[1..len_of_str_len]).unwrap();
-        Some(DecodeLengthResult {
+        Ok(DecodeLengthResult {
             offset: 1 + len_of_str_len,
             length: str_len as usize,
             expected_type: ExpectedType::StringType,
         })
     } else if prefix <= 0xf7 && input.len() > prefix as usize - 0xc0 {
         let list_len = prefix as usize - 0xc0;
-        Some(DecodeLengthResult {
+        Ok(DecodeLengthResult {
             offset: 1,
             length: list_len,
             expected_type: ExpectedType::ListType,
         })
     } else if prefix <= 0xff && input.len() as u64 > prefix as u64 - 0xf7
         && input.len() as u64
-            > prefix as u64 - 0xf7u64 + to_integer(&input[1..prefix as usize - 0xf7]).unwrap()
+            > prefix as u64 - 0xf7u64
+                + to_integer(&input[1..prefix as usize - 0xf7]).ok_or(Error::ListPrefixTooSmall)?
     {
         let len_of_list_len = prefix as usize - 0xf7;
         let list_len = to_integer(&input[1..len_of_list_len]).unwrap();
-        Some(DecodeLengthResult {
+        Ok(DecodeLengthResult {
             offset: 1 + len_of_list_len,
             length: list_len as usize,
             expected_type: ExpectedType::ListType,
         })
     } else {
-        None
+        unreachable!();
     }
 }
 
 #[test]
 fn decode_empty_byte_slice() {
-    assert!(decode_length(&[]).is_none());
+    assert!(decode_length(&[]).is_err());
 }
 
 #[test]

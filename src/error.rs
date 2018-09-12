@@ -17,6 +17,10 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     Message(String),
     TrailingBytes,
+    EmptyBuffer,
+    ListPrefixTooSmall,
+    StringPrefixTooSmall,
+    ExpectedList,
 }
 
 impl ser::Error for Error {
@@ -42,6 +46,10 @@ impl std::error::Error for Error {
         match *self {
             Error::Message(ref msg) => msg,
             Error::TrailingBytes => "Trailing bytes found at the end of input",
+            Error::EmptyBuffer => "Empty buffer detected",
+            Error::ListPrefixTooSmall => "List prefix is bigger than the data",
+            Error::StringPrefixTooSmall => "String prefix is bigger than the data",
+            Error::ExpectedList => "Expected list data",
         }
     }
 }
