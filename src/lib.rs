@@ -14,3 +14,6 @@ pub mod de;
 mod error;
 mod rlp;
 pub mod ser;
+
+#[cfg(test)]
+extern crate serde_bytes;

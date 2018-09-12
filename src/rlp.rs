@@ -156,7 +156,8 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
             length: str_len as usize,
             expected_type: ExpectedType::StringType,
         })
-    } else if prefix <= 0xbf && input.len() > prefix as usize - 0xb7
+    } else if prefix <= 0xbf
+        && input.len() > prefix.checked_sub(0xb7).ok_or(Error::WrongPrefix)? as usize
         && input.len() as u64
             > prefix as u64 - 0xb7u64
                 + to_integer(&input[1..prefix as usize - 0xb7 + 1])
@@ -181,10 +182,11 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     input.len() as u64 > prefix as u64 - 0xf7
         && input.len() as u64
             > prefix as u64 - 0xf7u64
-                + to_integer(&input[1..prefix as usize - 0xf7]).ok_or(Error::ListPrefixTooSmall)?
+                + to_integer(&input[1..prefix as usize - 0xf7 + 1])
+                    .ok_or(Error::ListPrefixTooSmall)?
     {
         let len_of_list_len = prefix as usize - 0xf7;
-        let list_len = to_integer(&input[1..len_of_list_len]).unwrap();
+        let list_len = to_integer(&input[1..len_of_list_len + 1]).unwrap();
         Ok(DecodeLengthResult {
             offset: 1 + len_of_list_len,
             length: list_len as usize,
