@@ -357,11 +357,14 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
         match res.expected_type {
             ExpectedType::StringType => {
                 let result = seed.deserialize(&mut *self.de);
+                // Consume the boundaries therefore decreasing this list
                 self.de.input = &self.de.input[res.offset + res.length..];
                 result.map(Some)
             }
             ExpectedType::ListType => {
-                unimplemented!("Sequence of list");
+                // Here we don't consume boundaries of a list, and let the deserializer create new deserializer for this sequence.
+                let result = seed.deserialize(&mut *self.de);
+                result.map(Some)
             }
         }
     }
@@ -386,4 +389,11 @@ fn deserialize_short_array() {
     let foo: Vec<String> =
         from_bytes(&[0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
     assert_eq!(foo, vec!["abc", "def"]);
+}
+
+#[test]
+fn deserialize_nested_sequence_of_string_seq() {
+    let foo: Vec<Vec<String>> =
+        from_bytes(&[0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
+    assert_eq!(foo, vec![vec!["abc", "def"]]);
 }
