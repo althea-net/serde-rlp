@@ -364,6 +364,8 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
             ExpectedType::ListType => {
                 // Here we don't consume boundaries of a list, and let the deserializer create new deserializer for this sequence.
                 let result = seed.deserialize(&mut *self.de);
+                self.de.input = self.de.stack.pop_front().unwrap();
+                self.de.input = &self.de.input[res.offset + res.length..self.de.input.len()];
                 result.map(Some)
             }
         }
@@ -396,4 +398,26 @@ fn deserialize_nested_sequence_of_string_seq() {
     let foo: Vec<Vec<String>> =
         from_bytes(&[0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
     assert_eq!(foo, vec![vec!["abc", "def"]]);
+}
+
+#[test]
+fn deserialize_set_representation_of_three() {
+    //
+    let foo = from_bytes(&[0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]);
+    assert_eq!(
+        foo,
+        Ok(vec![
+            vec![],
+            vec![vec![]],
+            vec![vec![], vec![Vec::<u8>::new()]],
+        ])
+    );
+}
+
+#[test]
+fn deserialize_three_levels() {
+    let foo: Vec<Vec<Vec<String>>> = from_bytes(&[
+        0xca, 0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66,
+    ]).unwrap();
+    assert_eq!(foo, [[["abc", "def"]]]);
 }
