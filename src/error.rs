@@ -21,6 +21,8 @@ pub enum Error {
     ListPrefixTooSmall,
     StringPrefixTooSmall,
     ExpectedList,
+    ExpectedString,
+    InvalidString,
 }
 
 impl ser::Error for Error {
@@ -50,6 +52,8 @@ impl std::error::Error for Error {
             Error::ListPrefixTooSmall => "List prefix is bigger than the data",
             Error::StringPrefixTooSmall => "String prefix is bigger than the data",
             Error::ExpectedList => "Expected list data",
+            Error::ExpectedString => "Expected string",
+            Error::InvalidString => "Unable to decode valid string",
         }
     }
 }
