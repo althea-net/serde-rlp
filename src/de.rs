@@ -13,6 +13,7 @@ use std::str;
 
 pub struct Deserializer<'de> {
     input: &'de [u8],
+    last_offset: usize,
     /// Stacked input slices for nested data
     stack: VecDeque<&'de [u8]>,
 }
@@ -21,6 +22,7 @@ impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Self {
         Deserializer {
             input: input,
+            last_offset: 0usize,
             stack: VecDeque::new(),
         }
     }
@@ -32,12 +34,11 @@ where
 {
     let mut deserializer = Deserializer::from_bytes(s);
     let t = T::deserialize(&mut deserializer)?;
-    Ok((t))
-    // if deserializer.input.is_empty() {
-    //     Ok(t)
-    // } else {
-    //     Err(Error::TrailingBytes)
-    // }
+    if deserializer.last_offset == deserializer.input.len() || deserializer.input.len() == 0 {
+        Ok(t)
+    } else {
+        Err(Error::TrailingBytes)
+    }
 }
 
 impl<'de> Deserializer<'de> {
@@ -74,9 +75,12 @@ impl<'de> Deserializer<'de> {
     // example code!
     fn parse_string(&mut self) -> Result<&'de str> {
         match rlp::decode_length(&self.input) {
-            Some(ref res) if res.expected_type == ExpectedType::StringType => {
+            Ok(ref res) if res.expected_type == ExpectedType::StringType => {
                 match str::from_utf8(&self.input[res.offset..res.offset + res.length]) {
-                    Ok(s) => Ok(s),
+                    Ok(s) => {
+                        self.last_offset = res.offset + res.length;
+                        Ok(s)
+                    }
                     Err(_) => unimplemented!("TODO: Error unable to decode string"),
                 }
             }
@@ -247,18 +251,18 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        match rlp::decode_length(&self.input) {
-            Some(ref res) if res.expected_type == ExpectedType::ListType => {
-                let nested = &self.input[res.offset..res.offset + res.length];
+        let res = rlp::decode_length(&self.input)?;
+        if res.expected_type == ExpectedType::ListType {
+            let nested = &self.input[res.offset..res.offset + res.length];
 
-                // XXX: Is it really necessary to stack it?
-                self.stack.push_front(&self.input);
-                self.input = nested;
+            // XXX: Is it really necessary to stack it?
+            self.stack.push_front(&self.input);
+            self.input = nested;
 
-                let value = visitor.visit_seq(RlpListDecoder::new(&mut self))?;
-                Ok(value)
-            }
-            _ => unimplemented!("TODO: Error handling"),
+            let value = visitor.visit_seq(RlpListDecoder::new(&mut self))?;
+            Ok(value)
+        } else {
+            Err(Error::ExpectedList)
         }
     }
 
@@ -353,7 +357,7 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
             // No more elements
             return Ok(None);
         }
-        let res = rlp::decode_length(&self.de.input).unwrap();
+        let res = rlp::decode_length(&self.de.input).expect("Unable to decode next");
         match res.expected_type {
             ExpectedType::StringType => {
                 let result = seed.deserialize(&mut *self.de);
@@ -420,4 +424,28 @@ fn deserialize_three_levels() {
         0xca, 0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66,
     ]).unwrap();
     assert_eq!(foo, [[["abc", "def"]]]);
+}
+
+#[test]
+#[should_panic]
+fn simple_invalid() {
+    let _foo: String = from_bytes(&[0x83, 0x61, 0x62, 0x63, /* excess */ 0xff]).unwrap();
+}
+
+#[test]
+fn invalid_complex() {
+    let data : Vec<_> = "f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c00804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+        .as_bytes()
+        .chunks(2)
+        .map(|ch| {
+            str::from_utf8(&ch)
+                .ok()
+                .and_then(|res| u8::from_str_radix(&res, 16).ok())
+        })
+        .collect::<Option<_>>()
+        .unwrap();
+    assert_eq!(
+        from_bytes::<Vec<Vec<u8>>>(&data).unwrap_err(),
+        Error::ListPrefixTooSmall
+    );
 }
