@@ -122,21 +122,21 @@ fn decode_u64_max() {
 }
 
 #[derive(Debug, PartialEq)]
-enum ExpectedType {
+pub enum ExpectedType {
     /// Expecting a string
     StringType,
     /// Expecting a list
     ListType,
 }
 
-struct DecodeLengthResult {
-    offset: usize,
-    length: usize,
-    expected_type: ExpectedType,
+pub struct DecodeLengthResult {
+    pub offset: usize,
+    pub length: usize,
+    pub expected_type: ExpectedType,
 }
 
 /// Decodes chunk of data and outputs offset, length of nested data and its expected type
-fn decode_length(input: &[u8]) -> Option<DecodeLengthResult> {
+pub fn decode_length(input: &[u8]) -> Option<DecodeLengthResult> {
     if input.len() == 0 {
         return None;
     }
@@ -204,8 +204,10 @@ fn decode_single_byte() {
 
 #[test]
 fn decode_short_string() {
+    use std::str;
     // "abc"
-    let res = decode_length(&[0x83, 0x61, 0x62, 0x63]).unwrap();
+    let input = vec![0x83, 0x61, 0x62, 0x63, 0xff];
+    let res = decode_length(&input[..]).unwrap();
     assert_eq!(res.offset, 1);
     assert_eq!(res.length, 3);
     assert_eq!(res.expected_type, ExpectedType::StringType);

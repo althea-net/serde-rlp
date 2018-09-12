@@ -10,6 +10,7 @@ extern crate byteorder;
 extern crate num;
 extern crate serde;
 
+pub mod de;
 mod error;
 mod rlp;
 pub mod ser;
