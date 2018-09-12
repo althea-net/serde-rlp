@@ -68,6 +68,20 @@ impl<'de> Deserializer<'de> {
             Err(Error::ExpectedString)
         }
     }
+
+    fn parse_bytes(&mut self) -> Result<&'de [u8]> {
+        let res = rlp::decode_length(&self.input)?;
+        if res.expected_type == ExpectedType::StringType {
+            // let s = str::from_utf8(&self.input[res.offset..res.offset + res.length])
+            //     .map_err(|_| Error::InvalidString)?;
+            let s = &self.input[res.offset..res.offset + res.length];
+            //     .map_err(|_| Error::InvalidString)?;
+            self.input = &self.input[res.offset + res.length..];
+            Ok(s)
+        } else {
+            Err(Error::ExpectedString)
+        }
+    }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -186,11 +200,11 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
 
     // The `Serializer` implementation on the previous page serialized byte
     // arrays as JSON arrays of bytes. Handle that representation here.
-    fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value>
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_borrowed_bytes(self.parse_bytes()?)
     }
 
     fn deserialize_byte_buf<V>(self, _visitor: V) -> Result<V::Value>
@@ -415,21 +429,25 @@ fn simple_invalid() {
     let _foo: String = from_bytes(&[0x83, 0x61, 0x62, 0x63, /* excess */ 0xff]).unwrap();
 }
 
-#[test]
-fn invalid_complex() {
-    let data : Vec<_> = "f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c00804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
-        .as_bytes()
+fn get_bytes(b: &str) -> Option<Vec<u8>> {
+    b.as_bytes()
         .chunks(2)
         .map(|ch| {
             str::from_utf8(&ch)
                 .ok()
                 .and_then(|res| u8::from_str_radix(&res, 16).ok())
         })
-        .collect::<Option<_>>()
-        .unwrap();
+        .collect()
+}
+
+#[test]
+fn invalid_complex() {
+    use serde_bytes::Bytes;
+    let data = get_bytes("f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c00804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3").unwrap();
+
     assert_eq!(
-        from_bytes::<Vec<Vec<u8>>>(&data).unwrap_err(),
-        Error::ListPrefixTooSmall
+        from_bytes::<Vec<Bytes>>(&data).unwrap_err(),
+        Error::WrongPrefix
     );
 }
 
@@ -444,5 +462,31 @@ fn lorem_ipsum() {
     assert_eq!(
         data,
         "Lorem ipsum dolor sit amet, consectetur adipisicing elit"
+    );
+}
+
+#[test]
+fn unsigned_eth_transaction() {
+    use serde_bytes::Bytes;
+    let data = get_bytes("f83f8085e8d4a510008227108080af6025515b525b600a37f260003556601b596020356000355760015b525b54602052f260255860005b525b54602052f2808080").unwrap();
+    let decoded: Vec<Bytes> = from_bytes(&data).unwrap();
+
+    assert_eq!(
+        decoded,
+        vec![
+            Bytes::new(&[]),
+            Bytes::new(&[232, 212, 165, 16, 0]),
+            Bytes::new(&[39, 16]),
+            Bytes::new(&[]),
+            Bytes::new(&[]),
+            Bytes::new(&[
+                96, 37, 81, 91, 82, 91, 96, 10, 55, 242, 96, 0, 53, 86, 96, 27, 89, 96, 32, 53, 96,
+                0, 53, 87, 96, 1, 91, 82, 91, 84, 96, 32, 82, 242, 96, 37, 88, 96, 0, 91, 82, 91,
+                84, 96, 32, 82, 242,
+            ]),
+            Bytes::new(&[]),
+            Bytes::new(&[]),
+            Bytes::new(&[]),
+        ]
     );
 }

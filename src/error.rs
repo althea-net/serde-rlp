@@ -23,6 +23,7 @@ pub enum Error {
     ExpectedList,
     ExpectedString,
     InvalidString,
+    WrongPrefix,
 }
 
 impl ser::Error for Error {
@@ -54,6 +55,7 @@ impl std::error::Error for Error {
             Error::ExpectedList => "Expected list data",
             Error::ExpectedString => "Expected string",
             Error::InvalidString => "Unable to decode valid string",
+            Error::WrongPrefix => "Wrong prefix",
         }
     }
 }
