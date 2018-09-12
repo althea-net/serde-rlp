@@ -85,3 +85,137 @@ fn test_encode_number() {
     assert_eq!(encode_number(1024u32), [0x04, 0x00]);
     assert_eq!(encode_number(1024u64), [0x04, 0x00]);
 }
+
+fn to_integer(b: &[u8]) -> Option<u64> {
+    if b.len() == 0 {
+        None
+    } else if b.len() == 1 {
+        Some(b[0] as u64)
+    } else {
+        return Some(b[b.len() - 1] as u64 + to_integer(&b[0..b.len() - 1]).unwrap() * 256);
+    }
+}
+
+#[test]
+fn to_integer_with_empty_buffer() {
+    assert!(to_integer(&[]).is_none());
+}
+
+#[test]
+fn to_integer_with_single_byte() {
+    assert_eq!(to_integer(&[0xffu8]).unwrap(), 255u64);
+}
+
+#[test]
+fn to_integer_with_multiple_bytes() {
+    assert_eq!(to_integer(&[0x04u8, 0x00u8]).unwrap(), 1024u64);
+}
+
+#[test]
+fn decode_u32_max() {
+    assert_eq!(to_integer(&[0xffu8; 4]).unwrap(), 4294967295u64);
+}
+
+#[test]
+fn decode_u64_max() {
+    assert_eq!(to_integer(&[0xffu8; 8]).unwrap(), 18446744073709551615u64);
+}
+
+#[derive(Debug, PartialEq)]
+enum ExpectedType {
+    /// Expecting a string
+    StringType,
+    /// Expecting a list
+    ListType,
+}
+
+struct DecodeLengthResult {
+    offset: usize,
+    length: usize,
+    expected_type: ExpectedType,
+}
+
+/// Decodes chunk of data and outputs offset, length of nested data and its expected type
+fn decode_length(input: &[u8]) -> Option<DecodeLengthResult> {
+    if input.len() == 0 {
+        return None;
+    }
+    let prefix = input[0];
+    if prefix <= 0x7f {
+        Some(DecodeLengthResult {
+            offset: 0,
+            length: 1usize,
+            expected_type: ExpectedType::StringType,
+        })
+    } else if prefix <= 0xb7 && input.len() > (prefix - 0x80) as usize {
+        let str_len = prefix - 0x80;
+        Some(DecodeLengthResult {
+            offset: 1,
+            length: str_len as usize,
+            expected_type: ExpectedType::StringType,
+        })
+    } else if prefix <= 0xbf && input.len() > prefix as usize - 0xb7
+        && input.len() as u64
+            > prefix as u64 - 0xb7u64 + to_integer(&input[1..prefix as usize - 0xb7]).unwrap()
+    {
+        let len_of_str_len = prefix as usize - 0xb7;
+        let str_len = to_integer(&input[1..len_of_str_len]).unwrap();
+        Some(DecodeLengthResult {
+            offset: 1 + len_of_str_len,
+            length: str_len as usize,
+            expected_type: ExpectedType::StringType,
+        })
+    } else if prefix <= 0xf7 && input.len() > prefix as usize - 0xc0 {
+        let list_len = prefix as usize - 0xc0;
+        Some(DecodeLengthResult {
+            offset: 1,
+            length: list_len,
+            expected_type: ExpectedType::ListType,
+        })
+    } else if prefix <= 0xff && input.len() as u64 > prefix as u64 - 0xf7
+        && input.len() as u64
+            > prefix as u64 - 0xf7u64 + to_integer(&input[1..prefix as usize - 0xf7]).unwrap()
+    {
+        let len_of_list_len = prefix as usize - 0xf7;
+        let list_len = to_integer(&input[1..len_of_list_len]).unwrap();
+        Some(DecodeLengthResult {
+            offset: 1 + len_of_list_len,
+            length: list_len as usize,
+            expected_type: ExpectedType::ListType,
+        })
+    } else {
+        None
+    }
+}
+
+#[test]
+fn decode_empty_byte_slice() {
+    assert!(decode_length(&[]).is_none());
+}
+
+#[test]
+fn decode_single_byte() {
+    // "a"
+    let res = decode_length(&[0x61u8]).unwrap();
+    assert_eq!(res.offset, 0);
+    assert_eq!(res.length, 1);
+    assert_eq!(res.expected_type, ExpectedType::StringType);
+}
+
+#[test]
+fn decode_short_string() {
+    // "abc"
+    let res = decode_length(&[0x83, 0x61, 0x62, 0x63]).unwrap();
+    assert_eq!(res.offset, 1);
+    assert_eq!(res.length, 3);
+    assert_eq!(res.expected_type, ExpectedType::StringType);
+}
+
+#[test]
+fn decode_short_array() {
+    // 1024
+    let res = decode_length(&[0xc4, 0x83, 0x61, 0x62, 0x63]).unwrap();
+    assert_eq!(res.offset, 1);
+    assert_eq!(res.length, 4);
+    assert_eq!(res.expected_type, ExpectedType::ListType);
+}
