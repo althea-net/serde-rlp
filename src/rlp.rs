@@ -129,6 +129,7 @@ pub enum ExpectedType {
     ListType,
 }
 
+#[derive(Debug)]
 pub struct DecodeLengthResult {
     pub offset: usize,
     pub length: usize,

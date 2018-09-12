@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::ops::{AddAssign, MulAssign, Neg};
 
 use serde::de::{
@@ -12,11 +13,16 @@ use std::str;
 
 pub struct Deserializer<'de> {
     input: &'de [u8],
+    /// Stacked input slices for nested data
+    stack: VecDeque<&'de [u8]>,
 }
 
 impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Self {
-        Deserializer { input }
+        Deserializer {
+            input: input,
+            stack: VecDeque::new(),
+        }
     }
 }
 
@@ -74,7 +80,7 @@ impl<'de> Deserializer<'de> {
                     Err(_) => unimplemented!("TODO: Error unable to decode string"),
                 }
             }
-            _ => unimplemented!("TODO: Error handling"),
+            v => unimplemented!("TODO: Error handling {:?}", v),
         }
     }
 }
@@ -241,7 +247,19 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        unimplemented!();
+        match rlp::decode_length(&self.input) {
+            Some(ref res) if res.expected_type == ExpectedType::ListType => {
+                let nested = &self.input[res.offset..res.offset + res.length];
+
+                // XXX: Is it really necessary to stack it?
+                self.stack.push_front(&self.input);
+                self.input = nested;
+
+                let value = visitor.visit_seq(RlpListDecoder::new(&mut self))?;
+                Ok(value)
+            }
+            _ => unimplemented!("TODO: Error handling"),
+        }
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -309,6 +327,46 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 }
 
+// In order to handle commas correctly when deserializing a JSON array or map,
+// we need to track whether we are on the first element or past the first
+// element.
+struct RlpListDecoder<'a, 'de: 'a> {
+    de: &'a mut Deserializer<'de>,
+}
+
+impl<'a, 'de> RlpListDecoder<'a, 'de> {
+    fn new(de: &'a mut Deserializer<'de>) -> Self {
+        RlpListDecoder { de }
+    }
+}
+
+// `SeqAccess` is provided to the `Visitor` to give it the ability to iterate
+// through elements of the sequence.
+impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        if self.de.input.len() == 0 {
+            // No more elements
+            return Ok(None);
+        }
+        let res = rlp::decode_length(&self.de.input).unwrap();
+        match res.expected_type {
+            ExpectedType::StringType => {
+                let result = seed.deserialize(&mut *self.de);
+                self.de.input = &self.de.input[res.offset + res.length..];
+                result.map(Some)
+            }
+            ExpectedType::ListType => {
+                unimplemented!("Sequence of list");
+            }
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 #[test]
@@ -327,5 +385,5 @@ fn deserialize_longer_string() {
 fn deserialize_short_array() {
     let foo: Vec<String> =
         from_bytes(&[0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
-    assert_eq!(foo, vec!["abc", "bcd"]);
+    assert_eq!(foo, vec!["abc", "def"]);
 }
