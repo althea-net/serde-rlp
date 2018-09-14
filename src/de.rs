@@ -433,8 +433,7 @@ fn get_bytes(b: &str) -> Option<Vec<u8>> {
             str::from_utf8(&ch)
                 .ok()
                 .and_then(|res| u8::from_str_radix(&res, 16).ok())
-        })
-        .collect()
+        }).collect()
 }
 
 #[test]
