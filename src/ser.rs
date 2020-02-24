@@ -6,8 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use error::{Error, Result};
-use rlp;
+use crate::error::{Error, Result};
+use crate::rlp;
 use serde::ser::{self, Serialize};
 use std::collections::VecDeque;
 use std::marker::Sized;
