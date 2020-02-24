@@ -9,6 +9,7 @@ include = [
 description = "Ethereum's RLP encoding implemented as a Serde data format"
 repository = "https://github.com/althea-mesh/serde-rlp"
 license-file = "LICENSE"
+edition= "2018"
 
 [badges]
 travis-ci = { repository = "althea-mesh/serde-rlp", branch = "master" }
