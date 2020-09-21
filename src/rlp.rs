@@ -195,35 +195,40 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     }
 }
 
-#[test]
-fn decode_empty_byte_slice() {
-    assert!(decode_length(&[]).is_err());
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[test]
-fn decode_single_byte() {
-    // "a"
-    let res = decode_length(&[0x61u8]).unwrap();
-    assert_eq!(res.offset, 0);
-    assert_eq!(res.length, 1);
-    assert_eq!(res.expected_type, ExpectedType::StringType);
-}
+    #[test]
+    fn decode_empty_byte_slice() {
+        assert!(decode_length(&[]).is_err());
+    }
 
-#[test]
-fn decode_short_string() {
-    // "abc"
-    let input = vec![0x83, 0x61, 0x62, 0x63, 0xff];
-    let res = decode_length(&input[..]).unwrap();
-    assert_eq!(res.offset, 1);
-    assert_eq!(res.length, 3);
-    assert_eq!(res.expected_type, ExpectedType::StringType);
-}
+    #[test]
+    fn decode_single_byte() {
+        // "a"
+        let res = decode_length(&[0x61u8]).unwrap();
+        assert_eq!(res.offset, 0);
+        assert_eq!(res.length, 1);
+        assert_eq!(res.expected_type, ExpectedType::StringType);
+    }
 
-#[test]
-fn decode_short_array() {
-    // 1024
-    let res = decode_length(&[0xc4, 0x83, 0x61, 0x62, 0x63]).unwrap();
-    assert_eq!(res.offset, 1);
-    assert_eq!(res.length, 4);
-    assert_eq!(res.expected_type, ExpectedType::ListType);
+    #[test]
+    fn decode_short_string() {
+        // "abc"
+        let input = vec![0x83, 0x61, 0x62, 0x63, 0xff];
+        let res = decode_length(&input[..]).unwrap();
+        assert_eq!(res.offset, 1);
+        assert_eq!(res.length, 3);
+        assert_eq!(res.expected_type, ExpectedType::StringType);
+    }
+
+    #[test]
+    fn decode_short_array() {
+        // 1024
+        let res = decode_length(&[0xc4, 0x83, 0x61, 0x62, 0x63]).unwrap();
+        assert_eq!(res.offset, 1);
+        assert_eq!(res.length, 4);
+        assert_eq!(res.expected_type, ExpectedType::ListType);
+    }
 }
