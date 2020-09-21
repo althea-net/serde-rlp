@@ -38,24 +38,20 @@ impl de::Error for Error {
     }
 }
 
-impl Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str(std::error::Error::description(self))
-    }
-}
+impl std::error::Error for Error {}
 
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
-            Error::Message(ref msg) => msg,
-            Error::TrailingBytes => "Trailing bytes found at the end of input",
-            Error::EmptyBuffer => "Empty buffer detected",
-            Error::ListPrefixTooSmall => "List prefix is bigger than the data",
-            Error::StringPrefixTooSmall => "String prefix is bigger than the data",
-            Error::ExpectedList => "Expected list data",
-            Error::ExpectedString => "Expected string",
-            Error::InvalidString => "Unable to decode valid string",
-            Error::WrongPrefix => "Wrong prefix",
+            Error::Message(ref msg) => f.write_str(msg),
+            Error::TrailingBytes => write!(f, "Trailing bytes found at the end of input"),
+            Error::EmptyBuffer => write!(f, "Empty buffer detected"),
+            Error::ListPrefixTooSmall => write!(f, "List prefix is bigger than the data"),
+            Error::StringPrefixTooSmall => write!(f, "String prefix is bigger than the data"),
+            Error::ExpectedList => write!(f, "Expected list data"),
+            Error::ExpectedString => write!(f, "Expected string"),
+            Error::InvalidString => write!(f, "Unable to decode valid string"),
+            Error::WrongPrefix => write!(f, "Wrong prefix"),
         }
     }
 }
