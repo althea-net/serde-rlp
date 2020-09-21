@@ -10,6 +10,7 @@ use std;
 use std::fmt::{self, Display};
 
 use serde::{de, ser};
+use std::str::Utf8Error;
 
 pub type Result<T> = std::result::Result<T, Error>;
 
@@ -22,7 +23,7 @@ pub enum Error {
     StringPrefixTooSmall,
     ExpectedList,
     ExpectedString,
-    InvalidString,
+    InvalidString(Utf8Error),
     WrongPrefix,
 }
 
@@ -38,7 +39,14 @@ impl de::Error for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::InvalidString(inner) => Some(inner),
+            _ => None
+        }
+    }
+}
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -50,8 +58,14 @@ impl fmt::Display for Error {
             Error::StringPrefixTooSmall => write!(f, "String prefix is bigger than the data"),
             Error::ExpectedList => write!(f, "Expected list data"),
             Error::ExpectedString => write!(f, "Expected string"),
-            Error::InvalidString => write!(f, "Unable to decode valid string"),
+            Error::InvalidString(_) => write!(f, "Unable to decode valid string"),
             Error::WrongPrefix => write!(f, "Wrong prefix"),
         }
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(e: Utf8Error) -> Self {
+        Error::InvalidString(e)
     }
 }

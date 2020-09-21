@@ -60,8 +60,7 @@ impl<'de> Deserializer<'de> {
     fn parse_string(&mut self) -> Result<&'de str> {
         let res = rlp::decode_length(&self.input)?;
         if res.expected_type == ExpectedType::StringType {
-            let s = str::from_utf8(&self.input[res.offset..res.offset + res.length])
-                .map_err(|_| Error::InvalidString)?;
+            let s = str::from_utf8(&self.input[res.offset..res.offset + res.length])?;
             self.input = &self.input[res.offset + res.length..];
             Ok(s)
         } else {
