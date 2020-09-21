@@ -15,5 +15,7 @@ mod error;
 mod rlp;
 pub mod ser;
 
+pub use error::Error;
+
 #[cfg(test)]
 extern crate serde_bytes;
