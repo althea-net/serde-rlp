@@ -159,8 +159,9 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     } else if prefix <= 0xbf
         && input.len() > prefix.checked_sub(0xb7).ok_or(Error::WrongPrefix)? as usize
         && input.len() as u64
-            > prefix as u64 - 0xb7u64 + to_integer(&input[1..prefix as usize - 0xb7 + 1])
-                .ok_or(Error::StringPrefixTooSmall)?
+            > prefix as u64 - 0xb7u64
+                + to_integer(&input[1..prefix as usize - 0xb7 + 1])
+                    .ok_or(Error::StringPrefixTooSmall)?
     {
         let len_of_str_len = prefix as usize - 0xb7;
         let str_len = to_integer(&input[1..len_of_str_len + 1]).unwrap();
@@ -180,8 +181,9 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     /* prefix <= 0xff && */
     input.len() as u64 > prefix as u64 - 0xf7
         && input.len() as u64
-            > prefix as u64 - 0xf7u64 + to_integer(&input[1..prefix as usize - 0xf7 + 1])
-                .ok_or(Error::ListPrefixTooSmall)?
+            > prefix as u64 - 0xf7u64
+                + to_integer(&input[1..prefix as usize - 0xf7 + 1])
+                    .ok_or(Error::ListPrefixTooSmall)?
     {
         let len_of_list_len = prefix as usize - 0xf7;
         let list_len = to_integer(&input[1..len_of_list_len + 1]).unwrap();
