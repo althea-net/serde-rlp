@@ -43,7 +43,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Error::InvalidString(inner) => Some(inner),
-            _ => None
+            _ => None,
         }
     }
 }
