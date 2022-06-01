@@ -16,9 +16,9 @@ travis-ci = { repository = "althea-mesh/serde-rlp", branch = "master" }
 [dependencies]
 byteorder = "1.2"
 num = "0.2"
-error = "0.1"
 serde = "1.0.0"
+thiserror = "1.0"
 
 [dev-dependencies]
 serde_derive = "1.0.0"
-serde_bytes = "0.10"
+serde_bytes = "0.11"
