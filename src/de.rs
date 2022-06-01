@@ -416,7 +416,8 @@ fn deserialize_set_representation_of_three() {
 fn deserialize_three_levels() {
     let foo: Vec<Vec<Vec<String>>> = from_bytes(&[
         0xca, 0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66,
-    ]).unwrap();
+    ])
+    .unwrap();
     assert_eq!(foo, [[["abc", "def"]]]);
 }
 
@@ -424,16 +425,6 @@ fn deserialize_three_levels() {
 #[should_panic]
 fn simple_invalid() {
     let _foo: String = from_bytes(&[0x83, 0x61, 0x62, 0x63, /* excess */ 0xff]).unwrap();
-}
-
-fn get_bytes(b: &str) -> Option<Vec<u8>> {
-    b.as_bytes()
-        .chunks(2)
-        .map(|ch| {
-            str::from_utf8(&ch)
-                .ok()
-                .and_then(|res| u8::from_str_radix(&res, 16).ok())
-        }).collect()
 }
 
 #[test]
@@ -454,7 +445,8 @@ fn lorem_ipsum() {
         0x6f, 0x6c, 0x6f, 0x72, 0x20, 0x73, 0x69, 0x74, 0x20, 0x61, 0x6d, 0x65, 0x74, 0x2c, 0x20,
         0x63, 0x6f, 0x6e, 0x73, 0x65, 0x63, 0x74, 0x65, 0x74, 0x75, 0x72, 0x20, 0x61, 0x64, 0x69,
         0x70, 0x69, 0x73, 0x69, 0x63, 0x69, 0x6e, 0x67, 0x20, 0x65, 0x6c, 0x69, 0x74,
-    ]).unwrap();
+    ])
+    .unwrap();
     assert_eq!(
         data,
         "Lorem ipsum dolor sit amet, consectetur adipisicing elit"
