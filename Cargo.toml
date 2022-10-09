@@ -1,5 +1,6 @@
 [package]
 name = "serde-rlp"
+edition = "2021"
 version = "0.1.4"
 authors = ["Michał Papierski <michal@papierski.net>"]
 include = [

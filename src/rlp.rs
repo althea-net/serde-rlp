@@ -7,7 +7,7 @@
 // except according to those terms.
 
 use byteorder::{BigEndian, WriteBytesExt};
-use error::Error;
+use crate::error::Error;
 use num::Num;
 use num::Unsigned;
 use std::mem::size_of;

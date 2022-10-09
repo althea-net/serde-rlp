@@ -3,9 +3,9 @@ use std::ops::{AddAssign, MulAssign, Neg};
 
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 
-use rlp::{self, ExpectedType};
+use crate::rlp::{self, ExpectedType};
 
-use error::{Error, Result};
+use crate::error::{Error, Result};
 use std::str;
 
 pub struct Deserializer<'de> {
