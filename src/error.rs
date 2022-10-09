@@ -13,7 +13,7 @@ use serde::{de, ser};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Error {
     Message(String),
     TrailingBytes,
@@ -39,13 +39,15 @@ impl de::Error for Error {
 }
 
 impl Display for Error {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter.write_str(std::error::Error::description(self))
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
-impl std::error::Error for Error {
-    fn description(&self) -> &str {
+impl std::error::Error for Error {}
+
+impl Error {
+    pub fn as_str(&self) -> &str {
         match *self {
             Error::Message(ref msg) => msg,
             Error::TrailingBytes => "Trailing bytes found at the end of input",

@@ -88,12 +88,12 @@ fn test_encode_number() {
 }
 
 fn to_integer(b: &[u8]) -> Option<u64> {
-    if b.len() == 0 {
+    if b.is_empty() {
         None
     } else if b.len() == 1 {
         Some(b[0] as u64)
     } else {
-        return Some(b[b.len() - 1] as u64 + to_integer(&b[0..b.len() - 1]).unwrap() * 256);
+        Some(b[b.len() - 1] as u64 + to_integer(&b[0..b.len() - 1]).unwrap() * 256)
     }
 }
 
@@ -122,7 +122,7 @@ fn decode_u64_max() {
     assert_eq!(to_integer(&[0xffu8; 8]).unwrap(), 18446744073709551615u64);
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExpectedType {
     /// Expecting a string
     StringType,
@@ -139,7 +139,7 @@ pub struct DecodeLengthResult {
 
 /// Decodes chunk of data and outputs offset, length of nested data and its expected type
 pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
-    if input.len() == 0 {
+    if input.is_empty() {
         return Err(Error::EmptyBuffer);
     }
     let prefix = input[0];

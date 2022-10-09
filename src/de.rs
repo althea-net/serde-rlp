@@ -17,7 +17,7 @@ pub struct Deserializer<'de> {
 impl<'de> Deserializer<'de> {
     pub fn from_bytes(input: &'de [u8]) -> Self {
         Deserializer {
-            input: input,
+            input,
             stack: VecDeque::new(),
         }
     }
@@ -29,7 +29,7 @@ where
 {
     let mut deserializer = Deserializer::from_bytes(s);
     let t = T::deserialize(&mut deserializer)?;
-    if deserializer.input.len() == 0 {
+    if deserializer.input.is_empty() {
         Ok(t)
     } else {
         Err(Error::TrailingBytes)
@@ -58,7 +58,7 @@ impl<'de> Deserializer<'de> {
     }
 
     fn parse_string(&mut self) -> Result<&'de str> {
-        let res = rlp::decode_length(&self.input)?;
+        let res = rlp::decode_length(self.input)?;
         if res.expected_type == ExpectedType::StringType {
             let s = str::from_utf8(&self.input[res.offset..res.offset + res.length])
                 .map_err(|_| Error::InvalidString)?;
@@ -70,7 +70,7 @@ impl<'de> Deserializer<'de> {
     }
 
     fn parse_bytes(&mut self) -> Result<&'de [u8]> {
-        let res = rlp::decode_length(&self.input)?;
+        let res = rlp::decode_length(self.input)?;
         if res.expected_type == ExpectedType::StringType {
             let s = &self.input[res.offset..res.offset + res.length];
             self.input = &self.input[res.offset + res.length..];
@@ -243,12 +243,12 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        let res = rlp::decode_length(&self.input)?;
+        let res = rlp::decode_length(self.input)?;
         if res.expected_type == ExpectedType::ListType {
             let nested = &self.input[res.offset..res.offset + res.length];
-            self.stack.push_front(&self.input);
+            self.stack.push_front(self.input);
             self.input = nested;
-            let value = visitor.visit_seq(RlpListDecoder::new(&mut self))?;
+            let value = visitor.visit_seq(RlpListDecoder::new(self))?;
             self.input = self.stack.pop_front().unwrap();
             self.input = &self.input[res.offset + res.length..];
             Ok(value)
@@ -344,11 +344,11 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        if self.de.input.len() == 0 {
+        if self.de.input.is_empty() {
             // No more elements
             return Ok(None);
         }
-        match rlp::decode_length(&self.de.input)?.expected_type {
+        match rlp::decode_length(self.de.input)?.expected_type {
             ExpectedType::StringType => {
                 let result = seed.deserialize(&mut *self.de);
                 result.map(Some)
@@ -366,21 +366,21 @@ impl<'de, 'a> SeqAccess<'de> for RlpListDecoder<'a, 'de> {
 
 #[test]
 fn deserialize_short_string() {
-    let foo: String = from_bytes(&[0x61u8]).unwrap();
-    assert_eq!(foo, "a");
+    let x: String = from_bytes(&[0x61u8]).unwrap();
+    assert_eq!(x, "a");
 }
 
 #[test]
 fn deserialize_longer_string() {
-    let foo: String = from_bytes(&[0x83, 0x61, 0x62, 0x63]).unwrap();
-    assert_eq!(foo, "abc");
+    let x: String = from_bytes(&[0x83, 0x61, 0x62, 0x63]).unwrap();
+    assert_eq!(x, "abc");
 }
 
 #[test]
 fn deserialize_short_array() {
-    let foo: Vec<String> =
+    let x: Vec<String> =
         from_bytes(&[0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
-    assert_eq!(foo, vec!["abc", "def"]);
+    assert_eq!(x, vec!["abc", "def"]);
 }
 
 #[test]
@@ -393,17 +393,17 @@ fn deserialize_short_array_into_tuple() {
 
 #[test]
 fn deserialize_nested_sequence_of_string_seq() {
-    let foo: Vec<Vec<String>> =
+    let x: Vec<Vec<String>> =
         from_bytes(&[0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66]).unwrap();
-    assert_eq!(foo, vec![vec!["abc", "def"]]);
+    assert_eq!(x, vec![vec!["abc", "def"]]);
 }
 
 #[test]
 fn deserialize_set_representation_of_three() {
     //
-    let foo = from_bytes(&[0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]);
+    let x = from_bytes(&[0xc7, 0xc0, 0xc1, 0xc0, 0xc3, 0xc0, 0xc1, 0xc0]);
     assert_eq!(
-        foo,
+        x,
         Ok(vec![
             vec![],
             vec![vec![]],
@@ -414,10 +414,10 @@ fn deserialize_set_representation_of_three() {
 
 #[test]
 fn deserialize_three_levels() {
-    let foo: Vec<Vec<Vec<String>>> = from_bytes(&[
+    let x: Vec<Vec<Vec<String>>> = from_bytes(&[
         0xca, 0xc9, 0xc8, 0x83, 0x61, 0x62, 0x63, 0x83, 0x64, 0x65, 0x66,
     ]).unwrap();
-    assert_eq!(foo, [[["abc", "def"]]]);
+    assert_eq!(x, [[["abc", "def"]]]);
 }
 
 #[test]
@@ -426,13 +426,14 @@ fn simple_invalid() {
     let _foo: String = from_bytes(&[0x83, 0x61, 0x62, 0x63, /* excess */ 0xff]).unwrap();
 }
 
+#[cfg(test)]
 fn get_bytes(b: &str) -> Option<Vec<u8>> {
     b.as_bytes()
         .chunks(2)
         .map(|ch| {
-            str::from_utf8(&ch)
+            str::from_utf8(ch)
                 .ok()
-                .and_then(|res| u8::from_str_radix(&res, 16).ok())
+                .and_then(|res| u8::from_str_radix(res, 16).ok())
         }).collect()
 }
 
@@ -449,7 +450,7 @@ fn invalid_complex() {
 
 #[test]
 fn lorem_ipsum() {
-    let data: String = from_bytes(&vec![
+    let data: String = from_bytes(&[
         0xb8, 0x38, 0x4c, 0x6f, 0x72, 0x65, 0x6d, 0x20, 0x69, 0x70, 0x73, 0x75, 0x6d, 0x20, 0x64,
         0x6f, 0x6c, 0x6f, 0x72, 0x20, 0x73, 0x69, 0x74, 0x20, 0x61, 0x6d, 0x65, 0x74, 0x2c, 0x20,
         0x63, 0x6f, 0x6e, 0x73, 0x65, 0x63, 0x74, 0x65, 0x74, 0x75, 0x72, 0x20, 0x61, 0x64, 0x69,
