@@ -7,9 +7,6 @@
 // except according to those terms.
 
 use crate::error::Error;
-use byteorder::{BigEndian, WriteBytesExt};
-use num::{Num, Unsigned};
-use std::mem::size_of;
 
 fn to_binary(x: u64) -> Vec<u8> {
     if x == 0 {
@@ -67,23 +64,27 @@ fn test_encode_length_of_wrong_size() {
     encode_length(18446744073709551615u64, 0x80);
 }
 
-pub fn encode_number<T: Num + Unsigned>(v: T) -> Vec<u8>
-where
-    T: Into<u64>,
-{
-    let mut wtr = vec![];
-    wtr.write_uint::<BigEndian>(v.into(), size_of::<T>())
-        .unwrap();
-    let index = wtr.iter().position(|&r| r > 0u8).unwrap_or(0);
-    wtr.split_off(index)
+// Gives `F` the encoded number
+pub fn encode_number<T: Into<u64>, F: FnMut(&[u8]) -> Y, Y>(v: T, mut f: F) -> Y {
+    let x: u64 = v.into();
+    let mut lz_bytes = (x.leading_zeros() as usize) / 8;
+    if x == 0 {
+        // special case, there needs to be at least one byte
+        lz_bytes -= 1;
+    }
+    let res: &[u8] = &x.to_be_bytes()[lz_bytes..];
+    // avoid needing to allocate
+    f(res)
 }
 
 #[test]
 fn test_encode_number() {
-    assert_eq!(encode_number(255u8), [0xff]);
-    assert_eq!(encode_number(1024u16), [0x04, 0x00]);
-    assert_eq!(encode_number(1024u32), [0x04, 0x00]);
-    assert_eq!(encode_number(1024u64), [0x04, 0x00]);
+    encode_number(0u8, |b| assert_eq!(b, [0]));
+    encode_number(1u8, |b| assert_eq!(b, [1]));
+    encode_number(255u8, |b| assert_eq!(b, [0xff]));
+    encode_number(1024u16, |b| assert_eq!(b, [0x4, 0]));
+    encode_number(1024u32, |b| assert_eq!(b, [0x4, 0]));
+    encode_number(1024u64, |b| assert_eq!(b, [0x4, 0]));
 }
 
 fn to_integer(b: &[u8]) -> Option<u64> {

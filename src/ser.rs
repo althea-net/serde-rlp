@@ -7,7 +7,7 @@
 // except according to those terms.
 
 use crate::error::{Error, Result};
-use crate::rlp;
+use crate::rlp::{self, encode_number};
 use serde::ser::{self, Serialize};
 use std::collections::VecDeque;
 use std::marker::Sized;
@@ -83,19 +83,19 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(&b))
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(&b))
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(&b))
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(&b))
     }
 
     fn serialize_f32(self, _v: f32) -> Result<()> {
