@@ -90,10 +90,11 @@ fn test_encode_number() {
 fn to_integer(b: &[u8]) -> Option<u64> {
     if b.is_empty() {
         None
-    } else if b.len() == 1 {
-        Some(b[0] as u64)
     } else {
-        Some(b[b.len() - 1] as u64 + to_integer(&b[0..b.len() - 1]).unwrap() * 256)
+        const LEN: usize = 8;
+        let mut a = [0u8; LEN];
+        a[(LEN - b.len())..].copy_from_slice(&b);
+        Some(u64::from_be_bytes(a))
     }
 }
 
