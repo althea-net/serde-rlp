@@ -6,14 +6,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-extern crate byteorder;
-extern crate num;
-extern crate serde;
-
 pub mod de;
 mod error;
 mod rlp;
 pub mod ser;
-
-#[cfg(test)]
-extern crate serde_bytes;

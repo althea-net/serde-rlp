@@ -1,0 +1,54 @@
+name: serde-rlp CI
+
+on: [pull_request]
+
+env:
+  RUSTFLAGS: -D warnings
+  RUST_BACKTRACE: 1
+
+jobs:
+  test_and_build_stable:
+    name: Test and Stable build suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust components
+        run: |
+          rustup set profile minimal
+          rustup default stable
+      - name: Run test suite
+        run: |
+          cargo test
+          cargo test --release
+          cargo build
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # Acquire the most recent nightly with a rustfmt component
+      - name: Install most recent Rustfmt
+        run: |
+          rustup set profile minimal
+          rustup default "nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/rustfmt)"
+          rustup component add rustfmt
+      - name: Run `cargo fmt`
+        run: |
+          cargo fmt -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      # Acquire the most recent nightly with a clippy component
+      - name: Install most recent Clippy
+        run: |
+          rustup set profile minimal
+          rustup default "nightly-$(curl -s https://rust-lang.github.io/rustup-components-history/x86_64-unknown-linux-gnu/clippy)"
+          rustup component add clippy
+      - name: Run `cargo clippy`
+        run: |
+          cargo clippy --all --all-targets --no-default-features -- -D clippy::all
+          cargo clippy --all --all-targets --all-features -- -D clippy::all

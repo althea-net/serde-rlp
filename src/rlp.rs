@@ -6,44 +6,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use byteorder::{BigEndian, WriteBytesExt};
-use error::Error;
-use num::Num;
-use num::Unsigned;
-use std::mem::size_of;
+use crate::error::Error;
 
-fn to_binary(x: u64) -> Vec<u8> {
-    if x == 0 {
-        Vec::new()
-    } else {
-        let mut result = to_binary(x / 256);
-        result.push((x % 256) as u8);
-        result
-    }
-}
-
-#[test]
-fn test_to_binary_null() {
-    assert_eq!(to_binary(0u64), []);
-}
-
-#[test]
-fn test_to_binary_non_null() {
-    assert_eq!(to_binary(1024u64), [0x04, 0x00]);
-    assert_eq!(
-        to_binary(18446744073709551615u64),
-        [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
-    );
-}
-
-pub fn encode_length(l: u64, offset: u8) -> Vec<u8> {
+/// Gives `F` the encoded length
+pub fn encode_length<F: FnMut(&[u8]) -> Y, Y>(l: u64, offset: u8, mut f: F) -> Y {
     if l < 56 {
-        vec![l as u8 + offset]
+        let res: [u8; 1] = [l as u8 + offset];
+        f(&res)
     } else if l < u64::max_value() {
-        let mut bl = to_binary(l);
-        let magic = bl.len() as u8 + offset + 55;
-        bl.insert(0, magic);
-        bl
+        // this should be the max value of 8 if l == 0
+        let lz_bytes = (l.leading_zeros() as usize) / 8;
+        // room for 8 bytes plus a byte for the magic value
+        let mut a = [0u8; 9];
+        let magic = (8 - lz_bytes) as u8 + offset + 55;
+        a[0] = magic;
+        a[1..(9 - lz_bytes)].copy_from_slice(&l.to_be_bytes()[lz_bytes..]);
+        f(&a[..(9 - lz_bytes)])
     } else {
         panic!("input too long");
     }
@@ -51,49 +29,53 @@ pub fn encode_length(l: u64, offset: u8) -> Vec<u8> {
 
 #[test]
 fn test_encode_length_small() {
-    assert_eq!(encode_length(55u64, 0xc0), [55 + 0xc0]);
+    encode_length(55u64, 0xc0, |b| assert_eq!(b, [55 + 0xc0]));
 }
 
 #[test]
 fn test_encode_length_big() {
-    assert_eq!(
-        encode_length(18446744073709551614u64, 0x80),
-        [191, 255, 255, 255, 255, 255, 255, 255, 254]
-    );
+    encode_length(18446744073709551614u64, 0x80, |b| {
+        assert_eq!(b, [191, 255, 255, 255, 255, 255, 255, 255, 254])
+    });
 }
 
 #[test]
 #[should_panic]
 fn test_encode_length_of_wrong_size() {
-    encode_length(18446744073709551615u64, 0x80);
+    encode_length(18446744073709551615u64, 0x80, |_| {});
 }
 
-pub fn encode_number<T: Num + Unsigned>(v: T) -> Vec<u8>
-where
-    T: Into<u64>,
-{
-    let mut wtr = vec![];
-    wtr.write_uint::<BigEndian>(v.into(), size_of::<T>())
-        .unwrap();
-    let index = wtr.iter().position(|&r| r > 0u8).unwrap_or(0);
-    wtr.split_off(index)
+/// Gives `F` the encoded number
+pub fn encode_number<T: Into<u64>, F: FnMut(&[u8]) -> Y, Y>(v: T, mut f: F) -> Y {
+    let x: u64 = v.into();
+    let mut lz_bytes = (x.leading_zeros() as usize) / 8;
+    if x == 0 {
+        // special case, there needs to be at least one byte
+        lz_bytes -= 1;
+    }
+    let res: &[u8] = &x.to_be_bytes()[lz_bytes..];
+    // avoid needing to allocate
+    f(res)
 }
 
 #[test]
 fn test_encode_number() {
-    assert_eq!(encode_number(255u8), [0xff]);
-    assert_eq!(encode_number(1024u16), [0x04, 0x00]);
-    assert_eq!(encode_number(1024u32), [0x04, 0x00]);
-    assert_eq!(encode_number(1024u64), [0x04, 0x00]);
+    encode_number(0u8, |b| assert_eq!(b, [0]));
+    encode_number(1u8, |b| assert_eq!(b, [1]));
+    encode_number(255u8, |b| assert_eq!(b, [0xff]));
+    encode_number(1024u16, |b| assert_eq!(b, [0x4, 0]));
+    encode_number(1024u32, |b| assert_eq!(b, [0x4, 0]));
+    encode_number(1024u64, |b| assert_eq!(b, [0x4, 0]));
 }
 
 fn to_integer(b: &[u8]) -> Option<u64> {
-    if b.len() == 0 {
+    if b.is_empty() {
         None
-    } else if b.len() == 1 {
-        Some(b[0] as u64)
     } else {
-        return Some(b[b.len() - 1] as u64 + to_integer(&b[0..b.len() - 1]).unwrap() * 256);
+        const LEN: usize = 8;
+        let mut a = [0u8; LEN];
+        a[(LEN - b.len())..].copy_from_slice(b);
+        Some(u64::from_be_bytes(a))
     }
 }
 
@@ -122,7 +104,7 @@ fn decode_u64_max() {
     assert_eq!(to_integer(&[0xffu8; 8]).unwrap(), 18446744073709551615u64);
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ExpectedType {
     /// Expecting a string
     StringType,
@@ -139,7 +121,7 @@ pub struct DecodeLengthResult {
 
 /// Decodes chunk of data and outputs offset, length of nested data and its expected type
 pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
-    if input.len() == 0 {
+    if input.is_empty() {
         return Err(Error::EmptyBuffer);
     }
     let prefix = input[0];
@@ -159,8 +141,9 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     } else if prefix <= 0xbf
         && input.len() > prefix.checked_sub(0xb7).ok_or(Error::WrongPrefix)? as usize
         && input.len() as u64
-            > prefix as u64 - 0xb7u64 + to_integer(&input[1..prefix as usize - 0xb7 + 1])
-                .ok_or(Error::StringPrefixTooSmall)?
+            > prefix as u64 - 0xb7u64
+                + to_integer(&input[1..prefix as usize - 0xb7 + 1])
+                    .ok_or(Error::StringPrefixTooSmall)?
     {
         let len_of_str_len = prefix as usize - 0xb7;
         let str_len = to_integer(&input[1..len_of_str_len + 1]).unwrap();
@@ -180,8 +163,9 @@ pub fn decode_length(input: &[u8]) -> Result<DecodeLengthResult, Error> {
     /* prefix <= 0xff && */
     input.len() as u64 > prefix as u64 - 0xf7
         && input.len() as u64
-            > prefix as u64 - 0xf7u64 + to_integer(&input[1..prefix as usize - 0xf7 + 1])
-                .ok_or(Error::ListPrefixTooSmall)?
+            > prefix as u64 - 0xf7u64
+                + to_integer(&input[1..prefix as usize - 0xf7 + 1])
+                    .ok_or(Error::ListPrefixTooSmall)?
     {
         let len_of_list_len = prefix as usize - 0xf7;
         let list_len = to_integer(&input[1..len_of_list_len + 1]).unwrap();

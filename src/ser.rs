@@ -6,8 +6,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use error::{Error, Result};
-use rlp;
+use crate::error::{Error, Result};
+use crate::rlp::{encode_length, encode_number};
 use serde::ser::{self, Serialize};
 use std::collections::VecDeque;
 use std::marker::Sized;
@@ -83,19 +83,19 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_u8(self, v: u8) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(b))
     }
 
     fn serialize_u16(self, v: u16) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(b))
     }
 
     fn serialize_u32(self, v: u32) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(b))
     }
 
     fn serialize_u64(self, v: u64) -> Result<()> {
-        self.serialize_bytes(&rlp::encode_number(v))
+        encode_number(v, |b| self.serialize_bytes(b))
     }
 
     fn serialize_f32(self, _v: f32) -> Result<()> {
@@ -114,7 +114,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         if v.len() == 1 && v.as_bytes()[0] < 0x80 {
             self.output.extend(v.as_bytes());
         } else {
-            self.output.extend(rlp::encode_length(v.len() as u64, 0x80));
+            encode_length(v.len() as u64, 0x80, |b| self.output.extend(b));
             self.output.extend(v.as_bytes());
         }
         Ok(())
@@ -125,7 +125,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         if v.len() == 1 && v[0] < 0x80 {
             self.output.extend(v);
         } else {
-            self.output.extend(rlp::encode_length(v.len() as u64, 0x80));
+            encode_length(v.len() as u64, 0x80, |b| self.output.extend(b));
             self.output.extend(v);
         }
         Ok(())
@@ -263,7 +263,7 @@ impl<'a> ser::SerializeSeq for &'a mut Serializer {
         // Calculate the serialization of the sequence based on the captured output.
         // Note that this output is cleared out before returning SerializeSeq instance,
         // and saved on a deque.
-        let mut prefix = rlp::encode_length(self.output.len() as u64, 0xc0);
+        let mut prefix = encode_length(self.output.len() as u64, 0xc0, |b| b.to_vec());
         prefix.extend(self.output.clone());
         // This will get the current output, and after that pop the top of the buffer,
         // which is the output *before* serializing the sequence.
@@ -286,7 +286,7 @@ impl<'a> ser::SerializeTuple for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        let mut prefix = rlp::encode_length(self.output.len() as u64, 0xc0);
+        let mut prefix = encode_length(self.output.len() as u64, 0xc0, |b| b.to_vec());
         prefix.extend(self.output.clone());
         // Restore original state after capturing this sequence
         self.output = self.buffer.pop_front().unwrap();
@@ -365,7 +365,7 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        let mut prefix = rlp::encode_length(self.output.len() as u64, 0xc0);
+        let mut prefix = encode_length(self.output.len() as u64, 0xc0, |b| b.to_vec());
         prefix.extend(self.output.clone());
         self.output = self.buffer.pop_front().unwrap(); // This unwrap is safe assuming the normal path of the code.
         self.output.extend(prefix);
