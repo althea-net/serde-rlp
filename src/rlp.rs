@@ -8,38 +8,20 @@
 
 use crate::error::Error;
 
-fn to_binary(x: u64) -> Vec<u8> {
-    if x == 0 {
-        Vec::new()
-    } else {
-        let mut result = to_binary(x / 256);
-        result.push((x % 256) as u8);
-        result
-    }
-}
-
-#[test]
-fn test_to_binary_null() {
-    assert_eq!(to_binary(0u64), []);
-}
-
-#[test]
-fn test_to_binary_non_null() {
-    assert_eq!(to_binary(1024u64), [0x04, 0x00]);
-    assert_eq!(
-        to_binary(18446744073709551615u64),
-        [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
-    );
-}
-
-pub fn encode_length(l: u64, offset: u8) -> Vec<u8> {
+/// Gives `F` the encoded length
+pub fn encode_length<F: FnMut(&[u8]) -> Y, Y>(l: u64, offset: u8, mut f: F) -> Y {
     if l < 56 {
-        vec![l as u8 + offset]
+        let res: [u8; 1] = [l as u8 + offset];
+        f(&res)
     } else if l < u64::max_value() {
-        let mut bl = to_binary(l);
-        let magic = bl.len() as u8 + offset + 55;
-        bl.insert(0, magic);
-        bl
+        // this should be the max value of 8 if l == 0
+        let lz_bytes = (l.leading_zeros() as usize) / 8;
+        // room for 8 bytes plus a byte for the magic value
+        let mut a = [0u8; 9];
+        let magic = (8 - lz_bytes) as u8 + offset + 55;
+        a[0] = magic;
+        a[1..(9 - lz_bytes)].copy_from_slice(&l.to_be_bytes()[lz_bytes..]);
+        f(&a[..(9 - lz_bytes)])
     } else {
         panic!("input too long");
     }
@@ -47,24 +29,23 @@ pub fn encode_length(l: u64, offset: u8) -> Vec<u8> {
 
 #[test]
 fn test_encode_length_small() {
-    assert_eq!(encode_length(55u64, 0xc0), [55 + 0xc0]);
+    encode_length(55u64, 0xc0, |b| assert_eq!(b, [55 + 0xc0]));
 }
 
 #[test]
 fn test_encode_length_big() {
-    assert_eq!(
-        encode_length(18446744073709551614u64, 0x80),
-        [191, 255, 255, 255, 255, 255, 255, 255, 254]
-    );
+    encode_length(18446744073709551614u64, 0x80, |b| {
+        assert_eq!(b, [191, 255, 255, 255, 255, 255, 255, 255, 254])
+    });
 }
 
 #[test]
 #[should_panic]
 fn test_encode_length_of_wrong_size() {
-    encode_length(18446744073709551615u64, 0x80);
+    encode_length(18446744073709551615u64, 0x80, |_| {});
 }
 
-// Gives `F` the encoded number
+/// Gives `F` the encoded number
 pub fn encode_number<T: Into<u64>, F: FnMut(&[u8]) -> Y, Y>(v: T, mut f: F) -> Y {
     let x: u64 = v.into();
     let mut lz_bytes = (x.leading_zeros() as usize) / 8;
@@ -93,7 +74,7 @@ fn to_integer(b: &[u8]) -> Option<u64> {
     } else {
         const LEN: usize = 8;
         let mut a = [0u8; LEN];
-        a[(LEN - b.len())..].copy_from_slice(&b);
+        a[(LEN - b.len())..].copy_from_slice(b);
         Some(u64::from_be_bytes(a))
     }
 }

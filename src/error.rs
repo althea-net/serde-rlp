@@ -6,7 +6,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std;
 use std::fmt::{self, Display};
 
 use serde::{de, ser};
