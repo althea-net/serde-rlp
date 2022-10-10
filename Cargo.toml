@@ -15,11 +15,11 @@ license-file = "LICENSE"
 travis-ci = { repository = "althea-mesh/serde-rlp", branch = "master" }
 
 [dependencies]
-byteorder = "1.2"
-num = "0.2"
+byteorder = "1.4"
 error = "0.1"
+num = "0.4"
 serde = "1"
 
 [dev-dependencies]
-serde_derive = "1.0.0"
-serde_bytes = "0.10"
+serde_bytes = "0.11"
+serde_derive = "1"

@@ -445,7 +445,7 @@ fn invalid_complex() {
     let data = get_bytes("f86103018207d094b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a8255441ca098ff921201554726367d2be8c00804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa08887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3").unwrap();
 
     assert_eq!(
-        from_bytes::<Vec<Bytes>>(&data).unwrap_err(),
+        from_bytes::<Vec<&Bytes>>(&data).unwrap_err(),
         Error::WrongPrefix
     );
 }
@@ -469,7 +469,7 @@ fn lorem_ipsum() {
 fn unsigned_eth_transaction() {
     use serde_bytes::Bytes;
     let data = get_bytes("f83f8085e8d4a510008227108080af6025515b525b600a37f260003556601b596020356000355760015b525b54602052f260255860005b525b54602052f2808080").unwrap();
-    let decoded: Vec<Bytes> = from_bytes(&data).unwrap();
+    let decoded: Vec<&Bytes> = from_bytes(&data).unwrap();
 
     assert_eq!(
         decoded,
