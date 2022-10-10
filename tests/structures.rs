@@ -1,7 +1,4 @@
-extern crate serde_rlp;
-#[macro_use]
-extern crate serde_derive;
-
+use serde_derive::Serialize;
 use serde_rlp::ser::to_bytes;
 
 #[derive(Debug, Serialize)]
