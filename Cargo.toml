@@ -15,7 +15,6 @@ license-file = "LICENSE"
 travis-ci = { repository = "althea-mesh/serde-rlp", branch = "master" }
 
 [dependencies]
-error = "0.1"
 serde = "1"
 
 [dev-dependencies]
